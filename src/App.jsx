@@ -1,83 +1,98 @@
-import React, { useState, useRef } from "react";
+import React, { useRef, useState } from "react";
 import audio from "./assets/audio.mp3";
 import "./index.css";
 
 function App() {
-  const [isGameRunning, setIsGameRunning] = useState(false);
-  const [bgColor, setBgColor] = useState("#ffffff");
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [rollResult, setRollResult] = useState(null);
+  const [nextRollDelay, setNextRollDelay] = useState(60000); // Start with 1 minute (60,000ms)
+  const [gameStarted, setGameStarted] = useState(false); // Track if the game has started
   const audioRef = useRef(null);
-  const timerRef = useRef(null);
+  const rollTimeout = useRef(null); // Track the timeout ID to clear it when needed
 
-  const startGame = () => {
-    if (!isGameRunning) {
-      setIsGameRunning(true);
-      console.log("Game started");
-      scheduleNextSound();
+  // Simulate the dice roll with 30% chance of 0 and 70% chance of 1
+  const rollDice = () => {
+    const randomNum = Math.random();
+    console.log(`Random value: ${randomNum}`);
+
+    let result = randomNum < 0.3 ? 0 : 1; // 30% for 0, 70% for 1
+    console.log(`Rolled: ${result}`);
+    setRollResult(result);
+
+    if (result === 0) {
+      emulateButtonPress();
+      setNextRollDelay(120000); // After zero, next roll starts after 2 minutes
+    } else {
+      setNextRollDelay(60000); // After 1, next roll starts after 1 minute
     }
+
+    // Schedule the next roll after the calculated delay
+    rollTimeout.current = setTimeout(() => rollDice(), nextRollDelay);
   };
 
-  const stopGame = () => {
-    if (isGameRunning) {
-      setIsGameRunning(false);
-      console.log("Game stopped");
-      clearTimeout(timerRef.current);
-      timerRef.current = null;
-      setBgColor("#ffffff");
-    }
+  const emulateButtonPress = () => {
+    console.log("Emulating Start button press");
+    startSound();
+    setTimeout(() => {
+      console.log("Emulating Stop button press");
+      stopSound();
+    }, 3000); // Stop sound after 3 seconds
   };
 
-  const scheduleNextSound = () => {
-    if (isGameRunning) {
-      const delay = Math.random() * (5 - 2) * 1000 + 2 * 1000; // Random delay between 2 to 5 seconds
-      console.log(`Next sound scheduled in ${delay / 1000} seconds`);
-      timerRef.current = setTimeout(() => {
-        playSoundAndChangeBg();
-      }, delay);
-    }
-  };
-
-  const playSoundAndChangeBg = () => {
-    if (isGameRunning && audioRef.current) {
+  const startSound = () => {
+    if (!isPlaying && audioRef.current) {
       audioRef.current
         .play()
         .then(() => {
-          console.log("Sound played");
+          console.log("Sound started playing");
+          setIsPlaying(true);
         })
         .catch((err) => {
-          console.error("Sound failed to play", err);
+          console.error("Failed to play sound", err);
         });
-      setBgColor(getRandomColor());
-      console.log("Background color changed");
-      scheduleNextSound();
     }
   };
 
-  const getRandomColor = () => {
-    const letters = "0123456789ABCDEF";
-    let color = "#";
-    for (let i = 0; i < 6; i++) {
-      color += letters[Math.floor(Math.random() * 16)];
+  const stopSound = () => {
+    if (isPlaying && audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current.currentTime = 0; // Reset to the beginning
+      console.log("Sound stopped");
+      setIsPlaying(false);
     }
-    return color;
+  };
+
+  const startGame = () => {
+    console.log("Game started");
+    setGameStarted(true); // Mark the game as started
+    rollTimeout.current = setTimeout(() => rollDice(), 60000); // Start the first roll after 1 minute
+  };
+
+  const stopGame = () => {
+    console.log("Game stopped");
+    stopSound();
+    setRollResult(null); // Clear the result
+    setGameStarted(false); // Mark the game as stopped
+    if (rollTimeout.current) clearTimeout(rollTimeout.current); // Clear any pending roll timeouts
   };
 
   return (
-    <div className="game-container" style={{ backgroundColor: bgColor }}>
-      <h1>Random Sound Game</h1>
+    <div className="game-container">
+      <h1>The sound will play at any time.</h1>
       <div className="button-container">
         <button
           onClick={startGame}
           className="game-button"
-          disabled={isGameRunning}
+          disabled={gameStarted}
         >
-          Start
+          Start Game
         </button>
         <button
           onClick={stopGame}
           className="game-button stop-button"
-          disabled={!isGameRunning}
+          disabled={!gameStarted}
         >
-          Stop
+          Stop Game
         </button>
       </div>
       <audio ref={audioRef} src={audio}></audio>
